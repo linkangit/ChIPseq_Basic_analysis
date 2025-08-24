@@ -1,4 +1,4 @@
-# Simple ChIP-seq Analysis Pipeline (Until Macs2 peak calling. Stay tuned for downstream analysis)
+# Simple ChIP-seq Analysis Pipeline (Until peak calling. Stay tuned for downstream analysis)
 
 A clean, easy-to-use Snakemake pipeline for ChIP-seq data analysis. This pipeline takes raw sequencing reads and produces high-quality peak calls, handling all the standard processing steps automatically.
 
