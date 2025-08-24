@@ -1,113 +1,97 @@
-# Generic ChIP-seq Analysis Pipeline
-# Simple, clean, and easy to use
+# Simple ChIP-seq Analysis Pipeline
 
-configfile: "config.yaml"
+A clean, easy-to-use Snakemake pipeline for ChIP-seq data analysis.
 
-# Define your samples here or in config.yaml
-SAMPLES = config.get("samples", {
-    "input_sample": "input",      # Your input/control sample
-    "chip_sample1": "H3K4me3",    # Your ChIP samples
-    "chip_sample2": "H3K27ac"
-})
+## Quick Setup
 
-# All sample names
-ALL_SAMPLES = list(SAMPLES.keys())
+### 1. Required Software
+Install these tools (or use conda/mamba):
+```bash
+conda install -c bioconda snakemake fastqc bowtie2 samtools macs2
+```
 
-rule all:
-    input:
-        # Quality control
-        expand("results/qc/{sample}_fastqc.html", sample=ALL_SAMPLES),
-        expand("results/qc/{sample}.flagstat", sample=ALL_SAMPLES),
-        
-        # Alignments
-        expand("results/bam/{sample}.bam", sample=ALL_SAMPLES),
-        expand("results/bam/{sample}.bam.bai", sample=ALL_SAMPLES),
-        
-        # Peak calling (ChIP samples vs input)
-        expand("results/peaks/{chip}_peaks.narrowPeak", 
-               chip=[s for s in ALL_SAMPLES if s != "input_sample"])
+### 2. Directory Structure
+Organize your files like this:
+```
+project/
+├── Snakefile
+├── config.yaml
+└── data/
+    ├── input_sample.fastq.gz
+    ├── chip_sample1.fastq.gz
+    └── chip_sample2.fastq.gz
+```
 
-# Step 1: Quality control of raw reads
-rule fastqc:
-    input:
-        "data/{sample}.fastq.gz"
-    output:
-        html="results/qc/{sample}_fastqc.html",
-        zip="results/qc/{sample}_fastqc.zip"
-    threads: 2
-    shell:
-        """
-        fastqc -t {threads} -o results/qc {input}
-        """
+### 3. Configure Your Analysis
+Edit `config.yaml`:
+- Set your genome index path
+- Define your sample names
+- Adjust genome size if needed
 
-# Step 2: Align reads to genome
-rule align:
-    input:
-        "data/{sample}.fastq.gz"
-    output:
-        temp("results/temp/{sample}.unsorted.bam")
-    threads: 8
-    params:
-        genome=config.get("genome_index", "genome/bowtie2_index")
-    shell:
-        """
-        bowtie2 -x {params.genome} -U {input} -p {threads} \
-        | samtools view -Sb - > {output}
-        """
+### 4. Run the Pipeline
+```bash
+# Dry run to check everything
+snakemake -n
 
-# Step 3: Sort BAM files
-rule sort_bam:
-    input:
-        "results/temp/{sample}.unsorted.bam"
-    output:
-        "results/bam/{sample}.bam"
-    threads: 4
-    shell:
-        """
-        samtools sort -@ {threads} -o {output} {input}
-        """
+# Run with 8 cores
+snakemake -j 8
 
-# Step 4: Index BAM files
-rule index_bam:
-    input:
-        "results/bam/{sample}.bam"
-    output:
-        "results/bam/{sample}.bam.bai"
-    shell:
-        """
-        samtools index {input}
-        """
+# Run on cluster (SLURM example)
+snakemake -j 100 --cluster "sbatch -n 1 -t 60"
+```
 
-# Step 5: Get alignment statistics
-rule flagstat:
-    input:
-        "results/bam/{sample}.bam"
-    output:
-        "results/qc/{sample}.flagstat"
-    shell:
-        """
-        samtools flagstat {input} > {output}
-        """
+## Results
 
-# Step 6: Call peaks (ChIP vs Input)
-rule call_peaks:
-    input:
-        chip="results/bam/{chip}.bam",
-        control="results/bam/input_sample.bam"
-    output:
-        peaks="results/peaks/{chip}_peaks.narrowPeak",
-        summits="results/peaks/{chip}_summits.bed"
-    params:
-        name="{chip}",
-        genome_size=config.get("genome_size", "hs")
-    shell:
-        """
-        macs2 callpeak \
-            -t {input.chip} \
-            -c {input.control} \
-            -f BAM \
-            -g {params.genome_size} \
-            -n {params.name} \
-            --outdir results/peaks \
-            -q 0.01
-        """
+The pipeline creates:
+- `results/qc/` - Quality control reports
+- `results/bam/` - Aligned and sorted BAM files  
+- `results/peaks/` - Peak calling results
+
+## What It Does
+
+1. **Quality Control**: FastQC on raw reads
+2. **Alignment**: Bowtie2 alignment to genome
+3. **Processing**: Sort and index BAM files
+4. **Statistics**: Generate alignment stats
+5. **Peak Calling**: MACS2 peak calling (ChIP vs Input)
+
+## Customization
+
+### Add More Samples
+Just add them to the `samples` section in `config.yaml`:
+```yaml
+samples:
+  input_sample: "input"
+  chip_sample1: "H3K4me3"
+  chip_sample2: "H3K27ac" 
+  chip_sample3: "H3K4me1"  # Add this line
+```
+
+### Change Parameters
+Modify the shell commands in the Snakefile. For example, to change MACS2 q-value:
+```bash
+-q 0.01  # Change to -q 0.05 for less stringent peaks
+```
+
+### Different File Names
+If your files have different names, either:
+1. Rename them to match the sample names, OR
+2. Modify the input paths in the rules
+
+## Common Issues
+
+**"No such file"**: Check that your fastq.gz files are in the `data/` directory with the correct names.
+
+**Bowtie2 index error**: Make sure the `genome_index` path in config.yaml points to your actual genome index files.
+
+**MACS2 fails**: Ensure you have both ChIP and input samples, and they're properly aligned.
+
+## Need Help?
+
+This pipeline covers the basics. For more advanced features:
+- Add quality trimming (Trimmomatic)
+- Include duplicate removal (Picard)
+- Add more QC steps (MultiQC)
+- Implement peak annotation
+
+The design is intentionally simple - modify as needed for your specific requirements!
