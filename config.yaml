@@ -1,0 +1,12 @@
+# ChIP-seq Pipeline Configuration
+
+# Genome settings
+genome_index: "path/to/bowtie2/genome_index"  # Path to your bowtie2 genome index
+genome_size: "hs"  # Human genome. Use "mm" for mouse, or specific size like "2.7e9"
+
+# Sample definitions
+samples:
+  input_sample: "input"      # Your input/control sample name
+  chip_sample1: "H3K4me3"    # Replace with your ChIP sample names
+  chip_sample2: "H3K27ac"    # Add more samples as needed
+  # chip_sample3: "H3K4me1"  # Uncomment and modify as needed
